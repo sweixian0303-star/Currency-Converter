@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+    <html lang="zh">
+        <head>
+            <meta charset="UTF-8">
+            <title>💱 汇率换算器</title>
+            <style>
+                /* 重置所有元素默认边距，统一盒模型 */
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+
+                /* 页面整体：紫色渐变背景，flexbox 居中 */
+                body {
+                    font-family: "Microsoft YaHei", sans-serif;
+                    background: linear-gradient(135deg, #667eea, #764ba2); /* 左上到右下的紫色渐变 */
+                    display: flex;
+                    justify-content: center; /* 水平居中 */
+                    align-items: center;     /* 垂直居中 */
+                    min-height: 100vh;       /* 至少占满整个屏幕高度 */
+                    padding: 20px;           /* 小屏幕时留边距 */
+                }
+
+                /* 白色卡片容器 */
+                .container {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    width: 420px;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2); /* 较深的阴影，增加立体感 */
+                }
+
+                /* 标题 */
+                h1 {
+                    text-align: center;
+                    font-size: 26px;
+                    color: #2d3748;
+                    margin-bottom: 28px;
+                    letter-spacing: 1px;
+                }
+
+                /* 输入行：输入框 + 下拉选单并排 */
+                .row {
+                    display: flex;
+                    gap: 10px;           /* 输入框和选单之间的间距 */
+                    margin-bottom: 12px;
+                }
+
+                /* 金额输入框 */
+                .row input {
+                    flex: 1;             /* 占满剩余宽度 */
+                    padding: 14px 16px;
+                    border: 2px solid #e2e8f0;
+                    border-radius: 12px;
+                    font-size: 22px;
+                    outline: none;
+                    transition: border-color 0.2s; /* 聚焦时边框颜色平滑过渡 */
+                    color: #2d3748;
+                }
+
+                /* 输入框聚焦时边框变紫 */
+                .row input:focus { border-color: #667eea; }
+
+                /* 货币下拉选单 */
+                .row select {
+                    width: 110px;
+                    padding: 14px 10px;
+                    border: 2px solid #e2e8f0;
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-weight: bold;
+                    outline: none;
+                    cursor: pointer;
+                    background: white;
+                    color: #2d3748;
+                    transition: border-color 0.2s;
+                }
+
+                .row select:focus { border-color: #667eea; }
+
+                /* 互换按钮：圆形，居中显示 */
+                #swapBtn {
+                    display: block;
+                    margin: 4px auto 10px; /* 上下留边距，auto 左右居中 */
+                    background: none;
+                    border: 2px solid #667eea;
+                    border-radius: 50%;    /* 变成圆形 */
+                    width: 42px;
+                    height: 42px;
+                    font-size: 20px;
+                    cursor: pointer;
+                    color: #667eea;
+                    transition: all 0.2s;
+                }
+
+                /* 悬停时填充紫色 + 旋转 180 度 */
+                #swapBtn:hover {
+                    background: #667eea;
+                    color: white;
+                    transform: rotate(180deg);
+                }
+
+                /* 换算按钮：紫色渐变，占满宽度 */
+                #convertBtn {
+                    width: 100%;
+                    padding: 14px;
+                    margin-top: 16px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: opacity 0.2s, transform 0.1s;
+                    letter-spacing: 1px;
+                }
+
+                #convertBtn:hover  { opacity: 0.9; }                  /* 悬停略微透明 */
+                #convertBtn:active { transform: scale(0.98); }        /* 点击时轻微缩小 */
+                #convertBtn:disabled { opacity: 0.6; cursor: not-allowed; } /* 禁用时变灰 */
+
+                /* 汇率信息文字：居中小字，API 获取后更新 */
+                #rateInfo {
+                    text-align: center;
+                    margin-top: 12px;
+                    color: #718096;
+                    font-size: 13px;
+                    min-height: 20px; /* 预留高度，防止内容出现时页面跳动 */
+                }
+
+                /* 常用货币快捷选区域 */
+                #quickSelect {
+                    margin-top: 18px;
+                    display: flex;
+                    flex-wrap: wrap; /* 超出宽度自动换行 */
+                    gap: 8px;
+                    align-items: center;
+                }
+
+                #quickSelect span { color: #a0aec0; font-size: 12px; } /* "常用：" 标签 */
+
+                /* 快捷选小按钮：胶囊形 */
+                #quickSelect button {
+                    padding: 5px 12px;
+                    background: #f0f4ff;
+                    color: #667eea;
+                    border: 1px solid #c3cef6;
+                    border-radius: 20px; /* 胶囊形状 */
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                /* 悬停时变紫色 */
+                #quickSelect button:hover {
+                    background: #667eea;
+                    color: white;
+                    border-color: #667eea;
+                }
+
+                /* 历史记录区域：用上边框分隔 */
+                #history {
+                    margin-top: 20px;
+                    border-top: 1px solid #e2e8f0;
+                    padding-top: 16px;
+                }
+
+                #historyTitle { font-size: 14px; color: #4a5568; font-weight: bold; margin-bottom: 10px; }
+
+                /* 历史列表：最多显示 160px 高，超出可滚动 */
+                #historyList {
+                    list-style: none;
+                    max-height: 160px;
+                    overflow-y: auto;
+                }
+
+                /* 自定义滚动条（仅 Chrome/Edge 支持） */
+                #historyList::-webkit-scrollbar { width: 4px; }
+                #historyList::-webkit-scrollbar-thumb { background: #c3cef6; border-radius: 4px; }
+
+                /* 每条历史记录：左边金额，右边时间 */
+                #historyList li {
+                    padding: 8px 12px;
+                    background: #f7f8ff;
+                    border-radius: 10px;
+                    margin-bottom: 6px;
+                    font-size: 13px;
+                    color: #4a5568;
+                    display: flex;
+                    justify-content: space-between; /* 左右两端对齐 */
+                    align-items: center;
+                }
+
+                /* 清除历史按钮：默认低调，悬停变红 */
+                #clearHistory {
+                    margin-top: 10px;
+                    padding: 6px 14px;
+                    background: none;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    color: #a0aec0;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                #clearHistory:hover { background: #fff5f5; color: #e53e3e; border-color: #fed7d7; }
+            </style>
+        </head>
+        <body>
+
+        <div class="container">
+            <h1>💱 汇率换算器</h1>
+
+            <!-- 来源货币：金额输入 + 货币选单 -->
+            <div class="row">
+                <input type="number" id="fromAmount" placeholder="输入金额" value="100">
+                <select id="fromCurrency">
+                    <option value="MYR">MYR</option>
+                    <option value="USD">USD</option>
+                    <option value="CNY">CNY</option>
+                    <option value="EUR">EUR</option>
+                    <option value="JPY">JPY</option>
+                    <option value="GBP">GBP</option>
+                    <option value="SGD">SGD</option>
+                    <option value="KRW">KRW</option>
+                    <option value="AUD">AUD</option>
+                    <option value="THB">THB</option>
+                </select>
+            </div>
+
+            <!-- 互换按钮：点击交换两个货币 -->
+            <button id="swapBtn">⇅</button>
+
+            <!-- 目标货币：只读结果 + 货币选单 -->
+            <div class="row">
+                <input type="number" id="toAmount" placeholder="换算结果" readonly> <!-- readonly：用户不能手动输入 -->
+                <select id="toCurrency">
+                    <option value="USD">USD</option>
+                    <option value="MYR">MYR</option>
+                    <option value="CNY">CNY</option>
+                    <option value="EUR">EUR</option>
+                    <option value="JPY">JPY</option>
+                    <option value="GBP">GBP</option>
+                    <option value="SGD">SGD</option>
+                    <option value="KRW">KRW</option>
+                    <option value="AUD">AUD</option>
+                    <option value="THB">THB</option>
+                </select>
+            </div>
+
+            <!-- 换算按钮 -->
+            <button id="convertBtn" onclick="convert()">💱 换算</button>
+
+            <!-- 汇率信息：换算后显示 "1 MYR = 0.245 USD" -->
+            <div id="rateInfo"></div>
+
+            <!-- 常用货币快捷选 -->
+            <div id="quickSelect">
+                <span>常用：</span>
+                <button onclick="setQuick('MYR','USD')">MYR→USD</button>
+                <button onclick="setQuick('USD','MYR')">USD→MYR</button>
+                <button onclick="setQuick('MYR','CNY')">MYR→CNY</button>
+                <button onclick="setQuick('MYR','SGD')">MYR→SGD</button>
+                <button onclick="setQuick('MYR','JPY')">MYR→JPY</button>
+            </div>
+
+            <!-- 历史记录区域 -->
+            <div id="history">
+                <div id="historyTitle">📋 换算历史</div>
+                <ul id="historyList"></ul>
+                <button id="clearHistory" onclick="clearHistory()">🗑 清除历史</button>
+            </div>
+        </div>
+
+        <script>
+            // ---- 获取页面元素，后面频繁用到 ----
+            let fromAmount   = document.getElementById("fromAmount");   // 金额输入框
+            let toAmount     = document.getElementById("toAmount");     // 结果输入框（只读）
+            let fromCurrency = document.getElementById("fromCurrency"); // 来源货币选单
+            let toCurrency   = document.getElementById("toCurrency");   // 目标货币选单
+            let swapBtn      = document.getElementById("swapBtn");      // 互换按钮
+
+            // ---- 获取汇率 ----
+            async function getRate(from, to) {
+                // async 表示这是异步函数，里面可以用 await 等待网络请求
+                try {
+                    // 用 fawazahmed0 的免费 CDN 汇率 API，无需注册，支持跨域
+                    // from.toLowerCase() 把货币代码转成小写，API 要求小写
+                    let url      = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from.toLowerCase()}.json`;
+                    let response = await fetch(url);        // 发送 HTTP 请求，await 等待响应
+                    let data     = await response.json();   // 把响应内容解析成 JS 对象
+
+                    // data 结构：{ "myr": { "usd": 0.245, "cny": 1.57, ... } }
+                    let rate = data[from.toLowerCase()][to.toLowerCase()]; // 取对应货币的汇率
+                    console.log(`1 ${from} = ${rate} ${to}`);
+                    return rate;
+
+                } catch (error) {
+                    // 网络断开或 API 出错时进入 catch
+                    console.log("API 错误：", error);
+                    return null; // 返回 null 表示获取失败
+                }
+            }
+
+            // ---- 换算主函数 ----
+            async function convert() {
+                let amount = parseFloat(fromAmount.value); // 把输入的字符串转成浮点数
+                let from   = fromCurrency.value;
+                let to     = toCurrency.value;
+
+                // 验证输入：NaN 或负数都不合法
+                if (isNaN(amount) || amount <= 0) {
+                    alert("请输入有效金额！");
+                    return;
+                }
+
+                // 显示加载状态，禁用按钮防止重复点击
+                document.getElementById("rateInfo").textContent  = "⏳ 获取汇率中...";
+                document.getElementById("convertBtn").disabled   = true;
+
+                let rate = await getRate(from, to); // 等待 API 返回汇率
+
+                document.getElementById("convertBtn").disabled = false; // 请求完成后恢复按钮
+
+                if (rate === null) {
+                    document.getElementById("rateInfo").textContent = "❌ 获取汇率失败，请重试";
+                    return;
+                }
+
+                let result     = amount * rate;        // 换算：金额 × 汇率
+                toAmount.value = result.toFixed(2);    // toFixed(2) 保留两位小数
+
+                // 把这次换算保存到历史记录
+                saveHistory({
+                    amount: amount,
+                    from:   from,
+                    result: result.toFixed(2),
+                    to:     to,
+                    time:   new Date().toLocaleTimeString() // 当前时间，如 "11:30:05 AM"
+                });
+
+                // 显示汇率信息，toFixed(6) 保留六位小数更精确
+                document.getElementById("rateInfo").textContent =
+                    `1 ${from} = ${rate.toFixed(6)} ${to}`;
+            }
+
+            // ---- 历史记录（用 localStorage 永久保存在浏览器里）----
+
+            function loadHistory() {
+                // localStorage.getItem 读取保存的字符串，|| "[]" 是默认值（没有记录时）
+                // JSON.parse 把 JSON 字符串转成 JS 数组
+                return JSON.parse(localStorage.getItem("currencyHistory") || "[]");
+            }
+
+            function saveHistory(record) {
+                let history = loadHistory();
+                history.unshift(record);               // unshift 把新记录插到数组最前面
+                if (history.length > 10) history.pop(); // pop 删除最后一条，最多保留 10 条
+                // JSON.stringify 把 JS 数组转成字符串，才能存入 localStorage
+                localStorage.setItem("currencyHistory", JSON.stringify(history));
+                renderHistory(); // 保存后立即更新页面显示
+            }
+
+            function renderHistory() {
+                let history = loadHistory();
+                let list    = document.getElementById("historyList");
+
+                if (history.length === 0) {
+                    list.innerHTML = "<li style='color:#a0aec0'>暂无记录</li>";
+                    return;
+                }
+
+                // map 把每条记录转成 HTML 字符串，join("") 拼接成一整段 HTML
+                list.innerHTML = history.map(r => `
+                    <li>
+                        <span>${r.amount} ${r.from} = ${r.result} ${r.to}</span>
+                        <span style="color:#a0aec0; font-size:11px">${r.time}</span>
+                    </li>
+                `).join("");
+            }
+
+            function clearHistory() {
+                localStorage.removeItem("currencyHistory"); // 从 localStorage 删除历史
+                renderHistory();                            // 更新页面显示
+            }
+
+            // ---- 快捷选货币 ----
+            function setQuick(from, to) {
+                fromCurrency.value = from; // 直接设置选单的值
+                toCurrency.value   = to;
+                convert();                 // 立即换算
+            }
+
+            // ---- 互换按钮：交换两个货币和金额 ----
+            swapBtn.addEventListener("click", function() {
+                // 交换货币选单
+                let temp           = fromCurrency.value;
+                fromCurrency.value = toCurrency.value;
+                toCurrency.value   = temp;
+
+                // 同时交换金额
+                let tempAmount   = fromAmount.value;
+                fromAmount.value = toAmount.value;
+                toAmount.value   = tempAmount;
+            });
+
+            // ---- 初始化：页面加载时自动执行 ----
+            convert();       // 自动换算一次，显示默认结果
+            renderHistory(); // 读取并显示之前保存的历史记录
+
+            // 切换货币时自动重新换算，不需要手动点按钮
+            fromCurrency.addEventListener("change", convert);
+            toCurrency.addEventListener("change", convert);
+        </script>
+
+        </body>
+    </html>
